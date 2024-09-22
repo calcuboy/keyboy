@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>键盘小子</title>
+    <script type="text/javascript" src="js/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+<script type="text/javascript">
+
+    var levels;
+    levels = [
+        '小白',        // 0
+        '刚入门',      // 1
+        '初窥门径',    // 2
+        '小有所成',    // 3
+        '少侠',        // 4
+        '少侠加',      // 5
+        '初闯江湖',    // 6
+        '纵横四海',    // 7
+        '大侠',        // 8
+        '弹指宗师'     // 9
+    ];
+
+
+    //各等级练习键
+    var levelKeys;
+    levelKeys = [
+        ['f', 'j'], // 0
+        ['g', 'h'], // 1
+        ['k', 'd'], // 2
+        ['s', 'l'], // 3
+        ['a', ';'], // 4
+        ['r', 'u'], // 5
+        ['t', 'y'], // 6
+        ['e', 'i'], // 7
+        ['w', 'o'], // 8
+        ['q', 'p'], // 9
+        ['v', 'm'], // 10
+        ['b', 'n'], // 11
+        ['c', ','], // 12
+        ['x', '.'], // 13
+        ['z', '/']  // 14
+    ];
+
+    var userName = "keyboy";
+
+    var hero;
+    var currentLevel = 0;
+    var levelText;
+    var flags;
+
+    // 练习字符串
+    var ex_string = "";
+    var ex_err = ""; //错误字符
+
+    var ex_text = [];
+    var ex_current = 0;
+    var ex_pointer;
+
+    var normalStyle;
+    var rightStyle;
+    var errStyle;
+
+    //积分
+    var score = 0;
+    var lineScore = 0;
+    var levelScore;
+    levelScore = [
+            40, // 0
+            60, // 1
+            80, // 2
+            180, // 3
+            290, // 4
+            400, // 5
+            450, // 6
+            500, // 7
+            550, // 8
+            600, // 9
+            650, // 10
+            700, // 11
+            750, // 12
+            800, // 13
+            850  // 14
+    ];
+
+    var scoreText;
+
+
+    //音效
+    var fx_click;
+    var fx_up_level;
+    var fx_error;
+
+    var conf;
+    conf = {
+        width: 1920,
+        height: 948,
+        renderer: Phaser.AUTO,
+        transparent: false,
+        antialias: false,
+        state: this,
+        scaleMode: Phaser.ScaleManager.EXACT_FIT
+    };
+
+    var game = new Phaser.Game(conf);
+
+    function preload() {
+        game.load.image('bg', 'assets/img/bg.jpg');
+        game.load.spritesheet('hero', 'assets/img/hero_sprite.png', 100, 120);
+        game.load.image('flag', 'assets/img/flag.png');
+        game.load.audio('fx_click', 'assets/sound/click.mp3');
+        game.load.audio('fx_up_level', 'assets/sound/uplevel.mp3');
+        game.load.audio('fx_error', 'assets/sound/error.wav');
+        game.load.image('hat', 'assets/img/lufei_hat.png');
+    }
+
+    function create() {
+
+        readLevel();
+
+        game.add.sprite(0, 0, 'bg');
+        hero = game.add.sprite(30, 20, 'hero', currentLevel);
+
+        levelText = game.add.text(30, 140, levels[currentLevel], {fontSize: '32px', fill: '#000'});
+
+        scoreText = game.add.text(game.world.width - 150, game.world.height - 100,
+                        score + '/' + levelScore[currentLevel], {fontSize: '32px', fill: '#FFF'});
+
+        flags = game.add.group();
+        for(var i=0; i<= currentLevel; i++){
+            var flag = flags.create( 70 * i + 140, 50, 'flag');
+        }
+
+        //音效
+        fx_click = game.add.audio('fx_click');
+        fx_click.allowMultiple = true;
+        fx_click.addMarker('one_click', 0.3, 0.5);
+
+        fx_up_level = game.add.audio('fx_up_level');
+
+        fx_error = game.add.audio('fx_error');
+        fx_error.allowMultiple = true;
+
+        //debug
+        //game.add.button(30, 300, 'hero', playClick, this, 0, 7, 8);
+        //game.add.button(30, 500, 'hero', playUpLevel, this, 4, 5, 6);
+
+        // 练习字符串
+        ex_string = getExcerciseString(currentLevel, ex_err);
+
+        var bar = game.add.graphics();
+        bar.beginFill(0x000000, 0.2);
+        bar.drawRect(game.world.width/2 - 700, 200, 1400, 260);
+
+        normalStyle = { font: "bold 80px Arial", fill: "#fff", boundsAlignH: "center", boundsAlignV: "middle"};
+        rightStyle = {font: "bold 80px Arial", fill: "#0f0", boundsAlignH: "center", boundsAlignV: "middle"};
+        errStyle = {font: "bold 80px Arial", fill: "#f00", boundsAlignH: "center", boundsAlignV: "middle"};
+
+        for(var j = 0; j<ex_string.length; j++){
+            var text = game.add.text(0, 0, ex_string[j], normalStyle);
+            text.setShadow(3, 3, 'rgba(0,0,0,0.5', 2);
+            text.setTextBounds(game.world.width/2 - 600 + j*60, 200, 60, 200);
+            ex_text.push(text);
+        }
+
+        //当前字符指针
+
+        ex_pointer = game.add.sprite(game.world.width/2 - 600, 360, 'hat');
+
+        //type
+        game.input.keyboard.addCallbacks(this, null, null, keyPress);
+    }
+
+    function update() {
+    }
+
+    /**
+     * 更新经验板文字
+     */
+    function updateScoreText() {
+        scoreText.text = score + '/' + levelScore[currentLevel];
+    }
+
+    function keyPress( char ){
+
+
+        if( char == ex_string[ex_current]){
+            playClick();
+            ex_text[ex_current].setStyle(rightStyle,true);
+            score++;
+            lineScore++;
+
+            updateScoreText();
+
+        } else {
+            playError();
+            ex_text[ex_current].setStyle(errStyle,true);
+            ex_err += ex_text[ex_current].text;
+            console.log(ex_err);
+        }
+
+        //end a line
+        if(ex_current >= ex_string.length-1){
+            ex_current = -1;
+            ex_pointer.x -= 60 * ex_string.length;
+
+            if( score >= levelScore[currentLevel]){
+                upLevel();
+                updateScoreText();
+            }
+
+            ex_string = getExcerciseString( currentLevel, ex_err);
+            setExerciseText();
+
+            if( lineScore < 16 ){
+                score -= lineScore;
+                if(score <= 0){score = 0;}
+            }
+            lineScore = 0;
+            ex_err = '';
+            saveLevel();
+        }
+
+        ex_current++;
+        ex_pointer.x += 60;
+    }
+
+    function setExerciseText(){
+        for(var m=0; m<20; m++){
+            ex_text[m].setStyle(normalStyle, true);
+            ex_text[m].text = ex_string[m];
+        }
+    }
+
+    /**
+     * 播放击键音效
+     */
+    function playClick(  ){
+        fx_click.play('one_click');
+    }
+
+    /**
+     * 播放错误音效
+     */
+    function playError(){
+        fx_error.play();
+    }
+
+    /**
+     * 播放升级音效
+     */
+    function playUpLevel(  ) {
+        fx_up_level.play();
+    }
+
+
+
+
+    /**
+     * 升级啦！
+     */
+    function upLevel() {
+        if (currentLevel >= levels.length - 1) return;
+        currentLevel += 1;
+        hero.frame = currentLevel;
+        levelText.text = levels[currentLevel];
+        flags.create( flags.children[flags.children.length-1].position.x + 70, 50, 'flag');
+        playUpLevel();
+
+        score = 0;
+
+        saveLevel();
+    }
+
+    /**
+     * 降级 -_-!!
+     */
+    function downLevel() {
+        if (currentLevel <= 0) return;
+        currentLevel -= 1;
+        hero.frame = currentLevel;
+        levelText.text = levels[currentLevel];
+        flags.children.pop();
+    }
+
+    /**
+     * 设置等级  r u god ? or hacker? actually i'm a debugger.
+     * @param {number} level - the level to be set to
+     */
+    function setLevel(level) {
+        if (level < 0 || level > 10) return;
+        currentLevel = level;
+        hero.frame = level;
+        levelText.text = levels[currentLevel];
+        flags.children = [];
+        for(var i=0; i<= level; i++){
+            var flag = flags.create( 70 * i + 140, 50, 'flag');
+        }
+    }
+
+    //储存进度
+    function saveLevel() {
+        localStorage[userName + '.level'] = currentLevel;
+        localStorage[userName + '.score'] = score;
+    }
+
+    //读取进度
+    function readLevel() {
+        if( localStorage && localStorage['keyboy.level']){
+            currentLevel = Number(localStorage[userName+'.level']);
+            score = Number(localStorage[userName + '.score']);
+        } else {
+            currentLevel = 0;
+            score = 0;
+        }
+    }
+
+    /**
+     * 根据等级、错误字符生成练习字符串
+     * @param level
+     * @param errString
+     * @returns {string}
+     */
+    function getExcerciseString(level, errString){
+        var ex_string_pool = "";
+        for(var i=0; i<=level; i++){
+            ex_string_pool += levelKeys[i].join('');
+        }
+
+        var poolLength = ex_string_pool.length;
+        ex_string = '';
+        for(var j=0; j<20; j++){
+            var k = Math.floor(Math.random()*poolLength);
+            ex_string += ex_string_pool[k];
+        }
+
+        //insert space
+        var ex_string_arr = ex_string.split('');
+
+        var q = ex_string_arr.length - 1;
+        for(var p = 0; p < errString.length; p++){
+            ex_string_arr[q - p] = errString[p];
+            console.log(ex_string_arr[q - p] + ' replaced by : ' + errString[p]);   //DEBUG
+        }
+
+
+        var n = 0;
+        for( var i=0; i<4; i++){
+            n += Math.floor(Math.random() * 4 ) + 2;
+            ex_string_arr[n] = " ";
+        }
+        ex_string = ex_string_arr.join('');
+        return ex_string;
+    }
+
+</script>
+</body>
+</html>
